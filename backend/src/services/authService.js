@@ -10,40 +10,27 @@ function makeToken() {
   return crypto.randomBytes(24).toString('hex')
 }
 
-function detectHashAlgo(storedHash) {
-  if (!storedHash) return 'none'
-  if (storedHash.startsWith('$2')) return 'bcrypt'
-  if (/^[a-f0-9]{64}$/i.test(storedHash)) return 'sha256'
-  return 'unknown'
+// Hash a password with bcrypt (use when creating/updating users)
+async function hashPassword(plain) {
+  const saltRounds = 12 // adjust for desired security/performance
+  return await bcrypt.hash(plain, saltRounds)
 }
 
-// Verify password against stored hash.
-// - bcrypt (hash starts with $2)
-// - legacy sha256 fallback (64 hex chars). Consider migrating to bcrypt on next login.
+// Verify password strictly with bcrypt
 async function verifyPassword(plain, storedHash) {
   if (!storedHash) return false
-  // bcrypt
-  if (storedHash.startsWith('$2')) {
-    try {
-      return await bcrypt.compare(plain, storedHash)
-    } catch {
-      return false
-    }
+  try {
+    return await bcrypt.compare(plain, storedHash)
+  } catch {
+    return false
   }
-  // legacy sha256 hex
-  const sha256Hex = /^[a-f0-9]{64}$/i
-  if (sha256Hex.test(storedHash)) {
-    const input = crypto.createHash('sha256').update(plain, 'utf8').digest('hex')
-    return crypto.timingSafeEqual(Buffer.from(input), Buffer.from(storedHash))
-  }
-  return false
 }
 
 /**
  * Login:
  * - Vyžaduje username a password (email se nepodporuje).
  * - Vybere uživatele z DB podle username (case-insensitive).
- * - Ověří heslo (bcrypt, případně legacy sha256).
+ * - Ověří heslo pomocí bcrypt.
  * - Při úspěchu vygeneruje token a uloží do tokenStore.
  */
 async function login({ username, password }) {
@@ -53,26 +40,20 @@ async function login({ username, password }) {
     throw err
   }
 
-  // eslint-disable-next-line no-console
   console.log('[auth] login attempt:', { username: String(username).trim() })
-
+  
   const user = await findByUsername(username)
   if (!user) {
-    // eslint-disable-next-line no-console
     console.warn('[auth] user not found in DB:', { username })
     const err = new Error('Invalid credentials')
     err.status = 401
     throw err
   }
 
-  const algo = detectHashAlgo(user.passwordHash)
   const ok = await verifyPassword(password, user.passwordHash)
-
-  // eslint-disable-next-line no-console
   console.log('[auth] verification result:', {
     userId: user.id,
     username: user.username,
-    algo,
     ok,
   })
 
@@ -88,9 +69,7 @@ async function login({ username, password }) {
 }
 
 async function logout(token) {
-  if (tokenStore.has(token)) {
-    tokenStore.delete(token)
-  }
+  tokenStore.delete(token)
   return { ok: true }
 }
 
@@ -105,4 +84,5 @@ module.exports = {
   login,
   logout,
   getUserFromToken,
+  hashPassword, // export for user registration/update
 }

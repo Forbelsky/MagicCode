@@ -13,8 +13,9 @@ async function login(req, res) {
     const { username } = req.body || {}
     // eslint-disable-next-line no-console
     console.log('[controller] POST /auth/login', { username })
-
+    
     const result = await authLogin({ username, password: req.body?.password })
+    
     // eslint-disable-next-line no-console
     console.log('[controller] login success:', { userId: result?.user?.id, username: result?.user?.username })
     res.json(result) // { token, user }

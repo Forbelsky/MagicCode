@@ -22,8 +22,8 @@ async function findByUsername(username) {
   const normalized = String(username).trim()
 
   const { data, error } = await supabase
-    .from('users')
-    .select('id, username, password_hash, roles, name')
+    .from('app_users')
+    .select('id, username, password_hash')
     .ilike('username', normalized) // exact case-insensitive match (no wildcards)
     .maybeSingle()
 
@@ -52,8 +52,8 @@ async function findByUsername(username) {
 async function findById(id) {
   const supabase = await getSupabase()
   const { data, error } = await supabase
-    .from('users')
-    .select('id, username, roles, name')
+    .from('app_users')
+    .select('id, username')
     .eq('id', id)
     .maybeSingle()
 
