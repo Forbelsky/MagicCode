@@ -47,3 +47,4 @@ coverage/
 *.pid
 *.swp
 *.swo
+backend/.env
