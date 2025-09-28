@@ -1,69 +1,55 @@
 // repositories/userRepository.js
-const { getSupabase } = require('../lib/supabase.js')
-const { User } = require('../entities/User.js')
+import pool from '../../db/pool.js';
+import User from '../entities/User.js';
 
-// Maps a DB row to the User entity used in the app
-function mapRowToUser(row) {
-  if (!row) return null
-  const roles = Array.isArray(row.roles) ? row.roles : ['USER'] // default roles if column doesn't exist
-  const name = row.name || row.username // optional name fallback
-  return new User({
-    id: String(row.id),
-    username: row.username,
-    name,
-    roles,
-    passwordHash: row.password_hash, // keep private; do not send to client
-  })
-}
-
-// Fetch one user by username (case-insensitive, exact string without wildcards)
 async function findByUsername(username) {
-  const supabase = await getSupabase()
-  const normalized = String(username).trim()
-
-  const { data, error } = await supabase
-    .from('app_users')
-    .select('id, username, password_hash')
-    .ilike('username', normalized) // exact case-insensitive match (no wildcards)
-    .maybeSingle()
-
-  // Debug logging to help verify DB access and row shape (no sensitive data)
-  // eslint-disable-next-line no-console
-  console.log('[findByUsername] input:', { username, normalized })
-  // eslint-disable-next-line no-console
-  console.log('[findByUsername] db row:', data && {
-    id: data.id,
-    username: data.username,
-    hasHash: Boolean(data.password_hash),
-    hashPreview: data.password_hash ? `${String(data.password_hash).slice(0, 12)}...` : null,
-    name: data.name ?? null,
-    roles: data.roles ?? null,
-  })
-
-  if (error) {
-    // eslint-disable-next-line no-console
-    console.error('[findByUsername] Supabase error:', error)
-    throw new Error(`DB error (findByUsername): ${error.message}`)
-  }
-  return mapRowToUser(data)
+  const [rows] = await pool.query(
+    'SELECT id, username, password_hash FROM users WHERE username = ?',
+    [username]
+  );
+  if (!rows.length) return null;
+  return new User(rows[0]);
 }
 
-// Fetch one user by id
 async function findById(id) {
-  const supabase = await getSupabase()
-  const { data, error } = await supabase
-    .from('app_users')
-    .select('id, username')
-    .eq('id', id)
-    .maybeSingle()
-
-  if (error) {
-    throw new Error(`DB error (findById): ${error.message}`)
-  }
-  return mapRowToUser(data)
+  const [rows] = await pool.query(
+    'SELECT id, username, password_hash FROM users WHERE id = ?',
+    [id]
+  );
+  if (!rows.length) return null;
+  return new User(rows[0]);
 }
 
-module.exports = {
+async function saveSessionToken(token, userId, expiresAt) {
+  await pool.query(
+    `INSERT INTO sessions (session_token, user_id, expires_at)
+     VALUES (?, ?, ?)`,
+    [token, userId, expiresAt]
+  );
+}
+
+async function deleteSessionToken(token) {
+  console.log('Deleting session token:', token);
+  await pool.query(
+    `DELETE FROM sessions WHERE session_token = ?`,
+    [token]
+  );
+}
+
+async function findUserIdByToken(token) {
+  const [rows] = await pool.query(
+    `SELECT user_id FROM sessions 
+     WHERE session_token = ? AND expires_at > NOW()`,
+    [token]
+  );
+  if (!rows.length) return null;
+  return rows[0].user_id;
+}
+
+export {
   findByUsername,
   findById,
-}
+  saveSessionToken,
+  deleteSessionToken,
+  findUserIdByToken
+};

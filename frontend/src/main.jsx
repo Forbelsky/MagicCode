@@ -15,7 +15,7 @@ let theme = createTheme({
     secondary: { main: '#7c3aed' },   // violet-600
     info: { main: '#ec4899' },        // pink-500
     text: {
-      primary: '#111827',             // slate-900
+      primary: '#000000ff',             // slate-900
       secondary: 'rgba(17,24,39,0.7)',
     },
     background: {

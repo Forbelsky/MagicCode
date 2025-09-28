@@ -1,10 +1,22 @@
-// src/routers/authRouter.js
-const express = require('express')
-const controller = require('../controllers/authController.js')
+import express from 'express';
 
-const router = express.Router()
+import { login, logout } from '../controllers/authController.js';
 
-router.post('/login', controller.login)
-router.post('/logout', controller.logout)
+const router = express.Router();
+console.log('authRouter loaded');
+router.post('/login', login);
+router.post('/logout', logout);
+router.get('/me', async (req, res) => {
+  // ⚠️ dočasné řešení – vždy vrací pseudo uživatele
+  if (!req.user) {
+    return res.json({
+      id: 1,
+      username: 'a',
+    });
+  }
 
-module.exports = router
+  res.json(req.user);
+});
+
+
+export default router;

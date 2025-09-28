@@ -24,6 +24,7 @@ import SecurityIcon from '@mui/icons-material/Security'
 import SpeedIcon from '@mui/icons-material/Speed'
 import DevicesIcon from '@mui/icons-material/Devices'
 import { useUserContext } from '../app/UserProvider.jsx'
+import { useNavigate } from 'react-router-dom'
 
 
 /**
@@ -35,6 +36,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [formError, setFormError] = useState('')
   const { login, loading, error } = useUserContext()
+  const navigate = useNavigate()
 
   const theme = useTheme()
   const belowFHD = useMediaQuery('(max-width:1919.98px)')
@@ -44,6 +46,9 @@ export default function LoginPage() {
     setFormError('')
     try {
       await login({ username, password })
+      await login({ username, password })
+       // ✅ přesměrování na profil po úspěšném přihlášení
+       navigate('/profile')
       // po úspěchu se App automaticky přepne (isAuthenticated z contextu je true)
     } catch (err) {
       setFormError(err.message || 'Přihlášení selhalo')

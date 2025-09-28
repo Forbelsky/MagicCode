@@ -1,42 +1,49 @@
-// src/controllers/authController.js
-const { login: authLogin, logout: authLogout } = require('../services/authService.js')
+// authController.js
+import * as authService from '../services/authService.js'
 
-function readTokenFromAuthHeader(req) {
-  const auth = req.headers.authorization || ''
-  const [scheme, token] = auth.split(' ')
-  if (scheme && scheme.toLowerCase() === 'bearer' && token) return token
-  return null
+const isProd = process.env.NODE_ENV === 'production'
+
+// Reusable cookie settings
+const cookieOptions = {
+  httpOnly: true,
+  secure: isProd,                          // true only on HTTPS/production
+  sameSite: isProd ? 'None' : 'Lax',        // cross-site cookies need 'None'
+  path: '/',                                // send for all routes
+  maxAge: 24 * 60 * 60 * 1000,              // 1 day
 }
 
-async function login(req, res) {
+export async function login(req, res) {
+  console.log('authController login called')
+
   try {
-    const { username } = req.body || {}
-    // eslint-disable-next-line no-console
-    console.log('[controller] POST /auth/login', { username })
-    
-    const result = await authLogin({ username, password: req.body?.password })
-    
-    // eslint-disable-next-line no-console
-    console.log('[controller] login success:', { userId: result?.user?.id, username: result?.user?.username })
-    res.json(result) // { token, user }
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.warn('[controller] login failed:', { message: e?.message })
-    res.status(e.status || 500).json({ error: e.message || 'Login failed' })
+    const { username, password } = req.body
+    const { token, user } = await authService.login({ username, password })
+
+    // ⬇️ set auth cookie
+    res.cookie('token', token, cookieOptions)
+
+    res.json({ user })
+  } catch (err) {
+    console.error('Login error:', err)
+    res.status(err.status || 500).json({ message: err.message || 'Login failed' })
   }
 }
 
-async function logout(req, res) {
+export async function logout(req, res) {
   try {
-    const token = readTokenFromAuthHeader(req)
-    await authLogout(token)
-    res.json({ ok: true })
-  } catch (e) {
-    res.json({ ok: true })
-  }
-}
+    const token = req.cookies?.token
+    console.log('cookies:', req.cookies)
+    console.log('authController logout called, token:', token)
 
-module.exports = {
-  login,
-  logout,
+    if (token) {
+      await authService.logout(token)
+    }
+
+    // remove cookie on client
+    res.clearCookie('token', { path: '/' })
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('Logout error:', err)
+    res.status(500).json({ message: 'Logout failed' })
+  }
 }
